@@ -1,54 +1,96 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
+#include<stdio.h>
+#include<sys/types.h>
+#include<sys/stat.h>
+#include<fcntl.h>
+#include<stdlib.h>
+#include<unistd.h>
+#include<string.h>
+#include<sys/wait.h>
 
-void countFile(char *option, char *filename) {
-    FILE *fp = fopen(filename, "r");
-    if (!fp) { perror("Error opening file"); return; }
-
-    int chars = 0, words = 0, lines = 0;
-    char ch;
-    while ((ch = fgetc(fp)) != EOF) {
-        chars++;
-        if (ch == '\n') lines++;
-        if (ch == ' ' || ch == '\n' || ch == '\t') words++;
+void make_toks(char *s,char *tok[])
+{
+    int i=0;
+    char *p;
+    p=strtok(s," ");
+    while(p!=NULL)
+    {
+        tok[i++]=p;
+        p=strtok(NULL," ");
     }
-    fclose(fp);
-
-    if (option[0] == 'c') printf("Characters: %d\n", chars);
-    else if (option[0] == 'w') printf("Words: %d\n", words);
-    else if (option[0] == 'l') printf("Lines: %d\n", lines);
-    else printf("Usage: count c|w|l filename\n");
+    tok[i]=NULL;
 }
 
-int main() {
-    char input[100], *args[10];
+void count(char *fn,char op)
+{
+    int fh,cc=0,wc=0,lc=0;
+    char c;
+    fh=open(fn,O_RDONLY);
+    if(fh==-1)
+    {
+        printf("\nfile %s not found\n",fn);
+        return;
+    }
 
-    while (1) {
-        printf("myshell$ ");
-        if (!fgets(input, sizeof(input), stdin)) break;
-        if (!(args[0] = strtok(input, " \t\n"))) continue;
+    while(read(fh,&c,1)>0)
+    {
+        
+        if(c==' ')
+            wc++;
+        if(c=='\n')
+            {
+            wc++;
+            lc++;
+            }
+            cc++;
+    }
 
-        int i = 0; 
-        while ((args[++i] = strtok(NULL, " \t\n")));
+    close(fh);
 
-        if (!strcmp(args[0], "exit")) break;
+    switch(op)
+    {
+        case 'c':
+            printf("\nNo. of Characters : %d\n",cc);
+            break;
 
-        else if (!strcmp(args[0], "count")) {
-            if (args[1] && args[2]) countFile(args[1], args[2]);
-            else printf("Usage: count c|w|l filename\n");
-        }
+        case 'w':
+            printf("\nNo. of Words : %d\n",wc + 1);
+            break;
 
-        else {
-            pid_t pid = fork();
-            if (pid == 0) {
-                execvp(args[0], args);
-                perror("Command not found");
-                exit(1);
-            } else wait(NULL);
+        case 'l':
+            printf("\nNo. of lines : %d\n",lc);
+            break;
+
+        default:
+            printf("\nInvalid option. Use c, w, or l.\n");
+    }
+}
+
+int main()
+{
+    char buff[80],*args[10];
+    int pid;
+    while(1)
+    {
+        printf("Myshell$");
+        fflush(stdin);
+        fgets(buff,80,stdin);
+        buff[strlen(buff)-1]='\0';
+        make_toks(buff,args);
+        if(strcmp(args[0],"count")==0)
+            count(args[2],args[1][0]);
+        else
+        {
+            pid=fork();
+            if(pid>0)
+                wait(NULL);
+            else
+            {
+                if((execvp(args[0],args)==-1))
+                    printf("Bad Command\n");
+            }
         }
     }
     return 0;
-}
+    }
+
+
